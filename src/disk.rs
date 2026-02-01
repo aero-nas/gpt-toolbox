@@ -6,6 +6,11 @@ use std::{fmt, fs, io, path};
 /// Default size of a logical sector (bytes).
 pub const DEFAULT_SECTOR_SIZE: LogicalBlockSize = LogicalBlockSize::Lb512;
 
+/// Valid maximum sector size in bytes according to gpt specification
+/// 4gb is still valid apparently. 
+/// who the FUCK came up with this.
+pub const MAX_SECTOR_SIZE: u64 = u64::pow(2,32);
+
 /// Logical block/sector size of a GPT disk.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LogicalBlockSize {
@@ -13,6 +18,9 @@ pub enum LogicalBlockSize {
     Lb512,
     /// 4096 bytes.
     Lb4096,
+
+    /// Other unusual block sizes.
+    Other(u64)
 }
 
 impl LogicalBlockSize {
@@ -21,6 +29,7 @@ impl LogicalBlockSize {
         match self {
             LogicalBlockSize::Lb512 => 512,
             LogicalBlockSize::Lb4096 => 4096,
+            LogicalBlockSize::Other(block_size) => *block_size as usize
         }
     }
 
@@ -29,6 +38,7 @@ impl LogicalBlockSize {
         match self {
             LogicalBlockSize::Lb512 => 512,
             LogicalBlockSize::Lb4096 => 4096,
+            LogicalBlockSize::Other(block_size) => *block_size
         }
     }
 }
@@ -47,13 +57,14 @@ impl From<LogicalBlockSize> for usize {
 
 impl TryFrom<u64> for LogicalBlockSize {
     type Error = io::Error;
-    fn try_from(v: u64) -> Result<Self, Self::Error> {
-        match v {
+    fn try_from(block_size: u64) -> Result<Self, Self::Error> {
+        match block_size {
             512 => Ok(LogicalBlockSize::Lb512),
             4096 => Ok(LogicalBlockSize::Lb4096),
+            512..=MAX_SECTOR_SIZE => Ok(LogicalBlockSize::Other(block_size)),
             _ => Err(io::Error::new(
-                io::ErrorKind::Other,
-                "unsupported logical block size (must be 512 or 4096)",
+                io::ErrorKind::InvalidInput,
+                format!("Logical block size {} is NOT in the range 512B-4GB", block_size),
             )),
         }
     }
@@ -64,6 +75,7 @@ impl fmt::Display for LogicalBlockSize {
         match self {
             LogicalBlockSize::Lb512 => write!(f, "512"),
             LogicalBlockSize::Lb4096 => write!(f, "4096"),
+            LogicalBlockSize::Other(block_size) => write!(f, "{}", block_size),
         }
     }
 }
@@ -73,7 +85,7 @@ impl fmt::Display for LogicalBlockSize {
 /// ## Example
 ///
 /// ```rust,no_run
-/// let gpt_disk = gpt::disk::read_disk("/dev/sdz").unwrap();
+/// let gpt_disk = gpt_toolbox::disk::read_disk("/dev/sdz").unwrap();
 /// println!("{:#?}", gpt_disk);
 /// ```
 pub fn read_disk(diskpath: impl AsRef<path::Path>) -> Result<GptDisk<fs::File>, GptError> {

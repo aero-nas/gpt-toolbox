@@ -222,7 +222,7 @@ impl fmt::Display for Partition {
 /// ## Example
 ///
 /// ```rust,no_run
-/// use gpt::{header, disk, partition};
+/// use gpt_toolbox::{header, disk, partition};
 /// use std::path::Path;
 ///
 /// let lb_size = disk::DEFAULT_SECTOR_SIZE;

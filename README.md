@@ -1,17 +1,18 @@
-# gpt
-[![crates.io](https://img.shields.io/crates/v/gpt.svg)](https://crates.io/crates/gpt)
+# gpt-toolbox
+[![crates.io](https://img.shields.io/crates/v/gpt-toolbox.svg)](https://crates.io/crates/gpt-toolbox)
 ![minimum rust 1.65](https://img.shields.io/badge/rust-1.65%2B-orange.svg)
-[![Documentation](https://docs.rs/gpt/badge.svg)](https://docs.rs/gpt)
+[![Documentation](https://docs.rs/gpt-toolbox/badge.svg)](https://docs.rs/gpt-toolbox)
 
-A pure-Rust library to work with GPT partition tables.
+Fork of [gpt](https://github.com/Quyzi/gpt) by Quyzi that adds:
 
-`gpt` provides support for manipulating (R/W) GPT headers and partition
-tables. It supports any  that implements the `Read + Write + Seek + Debug` traits. 
+- Support for arbitrary sector size (8K,16K, etc.)
+- [TODO] Multi-platform function to get sector size allowing devs to use any drive with weird sector size
 
 ## Example
 
 ```rust
 use std::error::Error;
+use gpt_toolbox::{GptConfig, LogicalBlockSize};
 
 fn main() {
     // Inspect disk image, handling errors.
@@ -26,8 +27,11 @@ fn run() -> Result<(), Box<dyn Error>> {
     let sample = "tests/fixtures/gpt-disk.img".to_string();
     let input = std::env::args().nth(1).unwrap_or(sample);
 
-    // Open disk image.
-    let cfg = gpt::GptConfig::new().writable(false);
+    // Open disk image with 16K sector size.
+    let cfg = GptConfig::new()
+        .writable(false)
+        .logical_block_size(LogicalBlockSize::Other(16384));
+    
     let disk = cfg.open(input)?;
 
     // Print GPT layout.

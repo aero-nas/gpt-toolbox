@@ -270,9 +270,9 @@ impl fmt::Display for Header {
 /// ## Example
 ///
 /// ```rust,no_run
-/// use gpt::header::read_header;
+/// use gpt_toolbox::header::read_header;
 ///
-/// let lb_size = gpt::disk::DEFAULT_SECTOR_SIZE;
+/// let lb_size = gpt_toolbox::disk::DEFAULT_SECTOR_SIZE;
 /// let diskpath = std::path::Path::new("/dev/sdz");
 ///
 /// let h = read_header(diskpath, lb_size).unwrap();
@@ -330,6 +330,7 @@ pub(crate) fn file_read_header<D: Read + Seek>(
     let sigstr = String::from_utf8_lossy(BytesRead::read(&mut bytes, 8)).into_owned();
 
     if sigstr != "EFI PART" {
+        dbg!(sigstr);
         return Err(HeaderError::InvalidGptSignature);
     };
 

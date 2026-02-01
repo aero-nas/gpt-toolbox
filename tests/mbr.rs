@@ -1,4 +1,4 @@
-use gpt::{disk, mbr};
+use gpt_toolbox::{disk, mbr};
 use std::fs::File;
 use std::io::Read;
 

@@ -1,8 +1,10 @@
-use gpt::{disk, partition_types, GptConfig};
+use gpt_toolbox::{disk, partition_types, GptConfig};
 
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{self};
 use tempfile::NamedTempFile;
+
+use uuid::Uuid;
 
 #[test]
 fn test_gpt_disk_read() {
@@ -27,7 +29,7 @@ fn test_gpt_disk_read() {
     assert_eq!(p1.part_type_guid, partition_types::LINUX_FS);
     assert_eq!(
         p1.part_guid,
-        "F38EAB50-076F-CB45-97F8-B1B7E5AF078F".parse().unwrap()
+        "F38EAB50-076F-CB45-97F8-B1B7E5AF078F".parse::<Uuid>().unwrap()
     );
     assert_eq!(p1.first_lba, 34);
     assert_eq!(p1.last_lba, 34);
@@ -42,7 +44,7 @@ fn test_gpt_disk_read() {
     assert_eq!(p2.part_type_guid, partition_types::LINUX_FS);
     assert_eq!(
         p2.part_guid,
-        "8EEE35AF-4A93-2C4F-AA7A-5FB193AC6FF7".parse().unwrap()
+        "8EEE35AF-4A93-2C4F-AA7A-5FB193AC6FF7".parse::<Uuid>().unwrap()
     );
     assert_eq!(p2.first_lba, 35);
     assert_eq!(p2.last_lba, 38);

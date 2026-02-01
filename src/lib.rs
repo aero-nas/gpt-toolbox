@@ -4,14 +4,14 @@
 //! tables. Raw disk devices as well as disk images are supported.
 //!
 //! ```
-//! use gpt;
+//! use gpt_toolbox;
 //! use std::convert::TryFrom;
 //! use std::io::{Read, Seek};
 //!
 //! fn inspect_disk() {
 //!     let diskpath = std::path::Path::new("/dev/sdz");
 //!
-//!     let disk = gpt::GptConfig::new()
+//!     let disk = gpt_toolbox::GptConfig::new()
 //!         .open(diskpath).expect("failed to open disk");
 //!
 //!     println!("Disk header: {:#?}", disk.primary_header());
@@ -20,12 +20,12 @@
 //!
 //! fn create_partition() {
 //!     let diskpath = std::path::Path::new("/tmp/chris.img");
-//!     let mut disk = gpt::GptConfig::new().writable(true)
+//!     let mut disk = gpt_toolbox::GptConfig::new().writable(true)
 //!         .create(diskpath).expect("failed to open disk");
 //!     let result = disk.add_partition(
 //!         "rust_partition",
 //!         100,
-//!         gpt::partition_types::LINUX_FS,
+//!         gpt_toolbox::partition_types::LINUX_FS,
 //!         0,
 //!         None
 //!     );
@@ -38,20 +38,20 @@
 //!     let mut mem_device = std::io::Cursor::new(vec![0u8; TOTAL_BYTES]);
 //!
 //!     // Create a protective MBR at LBA0
-//!     let mbr = gpt::mbr::ProtectiveMBR::with_lb_size(
+//!     let mbr = gpt_toolbox::mbr::ProtectiveMBR::with_lb_size(
 //!         u32::try_from((TOTAL_BYTES / 512) - 1).unwrap_or(0xFF_FF_FF_FF));
 //!     mbr.overwrite_lba0(&mut mem_device).expect("failed to write MBR");
 //!
-//!     let mut gdisk = gpt::GptConfig::default()
+//!     let mut gdisk = gpt_toolbox::GptConfig::default()
 //!         .writable(true)
-//!         .logical_block_size(gpt::disk::LogicalBlockSize::Lb512)
+//!         .logical_block_size(gpt_toolbox::disk::LogicalBlockSize::Lb512)
 //!         .create_from_device(mem_device, None)
 //!         .expect("failed to crate GptDisk");
 //!
 //!     // At this point, gdisk.primary_header() and gdisk.backup_header() are populated...
-//!     gdisk.add_partition("test1", 1024 * 12, gpt::partition_types::BASIC, 0, None)
+//!     gdisk.add_partition("test1", 1024 * 12, gpt_toolbox::partition_types::BASIC, 0, None)
 //!         .expect("failed to add test1 partition");
-//!     gdisk.add_partition("test2", 1024 * 18, gpt::partition_types::LINUX_FS, 0, None)
+//!     gdisk.add_partition("test2", 1024 * 18, gpt_toolbox::partition_types::LINUX_FS, 0, None)
 //!         .expect("failed to add test2 partition");
 //!
 //!     // Write the partition table and take ownership of
@@ -86,6 +86,7 @@ pub mod partition_types;
 
 use header::HeaderError;
 use macros::ResultInsert;
+
 
 /// A generic device that we can read/write partitions from/to.
 pub trait DiskDevice: Read + Write + Seek + std::fmt::Debug {}
@@ -170,10 +171,10 @@ impl fmt::Display for GptError {
 /// written to, but changing the partition count will fail.
 ///
 /// ```
-/// # use gpt::GptConfig;
+/// # use gpt_toolbox::GptConfig;
 /// let _default_config = GptConfig::new()
 ///     .writable(false)
-///     .logical_block_size(gpt::disk::DEFAULT_SECTOR_SIZE)
+///     .logical_block_size(gpt_toolbox::disk::DEFAULT_SECTOR_SIZE)
 ///     .only_valid_headers(false)
 ///     .readonly_backup(false)
 ///     .change_partition_count(false);
@@ -242,7 +243,8 @@ impl GptConfig {
         let file = fs::OpenOptions::new()
             .write(self.writable)
             .read(true)
-            .open(diskpath)?;
+            .open(&diskpath)?;
+
         let mut gpt = self.open_from_device(file)?;
         gpt.sync_all = Some(file_sync_all);
 
@@ -286,7 +288,7 @@ impl GptConfig {
         let table = partition::file_read_partitions(&mut device, header, self.lb_size)?;
 
         let disk = GptDisk {
-            config: self,
+            config: self.clone(),
             device,
             guid: header.disk_guid,
             primary_header: h1,

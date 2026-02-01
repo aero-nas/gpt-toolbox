@@ -14,7 +14,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let input = std::env::args().nth(1).unwrap_or(sample);
 
     // Open disk image.
-    let cfg = gpt::GptConfig::new().writable(false);
+    let cfg = gpt_toolbox::GptConfig::new().writable(false);
     let disk = cfg.open(input)?;
 
     // Print GPT layout.

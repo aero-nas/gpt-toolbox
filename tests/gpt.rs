@@ -1,4 +1,4 @@
-use gpt::{disk, GptConfig, GptError};
+use gpt_toolbox::{disk, GptConfig, GptError};
 
 use std::io::{Cursor, Read, Seek, Write};
 use tempfile::NamedTempFile;
@@ -31,7 +31,7 @@ fn test_create_simple_on_device() {
     let mut mem_device = Box::new(std::io::Cursor::new(vec![0_u8; TOTAL_BYTES]));
 
     // Create a protective MBR at LBA0
-    let mbr = gpt::mbr::ProtectiveMBR::with_lb_size(
+    let mbr = gpt_toolbox::mbr::ProtectiveMBR::with_lb_size(
         u32::try_from((TOTAL_BYTES / 512) - 1).unwrap_or(0xFF_FF_FF_FF),
     );
     mbr.overwrite_lba0(&mut mem_device).unwrap();
@@ -43,14 +43,14 @@ fn test_create_simple_on_device() {
         .unwrap();
 
     gdisk
-        .add_partition("test1", 1024 * 12, gpt::partition_types::BASIC, 0, None)
+        .add_partition("test1", 1024 * 12, gpt_toolbox::partition_types::BASIC, 0, None)
         .unwrap();
     gdisk
-        .add_partition("test2", 1024 * 18, gpt::partition_types::LINUX_FS, 0, None)
+        .add_partition("test2", 1024 * 18, gpt_toolbox::partition_types::LINUX_FS, 0, None)
         .unwrap();
     let id = gdisk.find_next_partition_id().unwrap();
     gdisk
-        .add_partition_at("test3", id, 94, 2, gpt::partition_types::BASIC, 0)
+        .add_partition_at("test3", id, 94, 2, gpt_toolbox::partition_types::BASIC, 0)
         .unwrap();
 
     let mut mem_device = gdisk.write().unwrap();
@@ -59,7 +59,7 @@ fn test_create_simple_on_device() {
     mem_device.read_exact(&mut final_bytes).unwrap();
 }
 
-fn t_read_bytes<D: gpt::DiskDevice>(device: &mut D, offset: u64, bytes: usize) -> Vec<u8> {
+fn t_read_bytes<D: gpt_toolbox::DiskDevice>(device: &mut D, offset: u64, bytes: usize) -> Vec<u8> {
     let mut buf = vec![0_u8; bytes];
     device.seek(std::io::SeekFrom::Start(offset)).unwrap();
     device.read_exact(&mut buf).unwrap();
@@ -75,14 +75,14 @@ fn test_only_valid_headers() {
         .unwrap();
 
     valid_disk
-        .add_partition("test1", 1024 * 12, gpt::partition_types::BASIC, 0, None)
+        .add_partition("test1", 1024 * 12, gpt_toolbox::partition_types::BASIC, 0, None)
         .unwrap();
     valid_disk
-        .add_partition("test2", 1024 * 18, gpt::partition_types::LINUX_FS, 0, None)
+        .add_partition("test2", 1024 * 18, gpt_toolbox::partition_types::LINUX_FS, 0, None)
         .unwrap();
     let id = valid_disk.find_next_partition_id().unwrap();
     valid_disk
-        .add_partition_at("test3", id, 94, 2, gpt::partition_types::BASIC, 0)
+        .add_partition_at("test3", id, 94, 2, gpt_toolbox::partition_types::BASIC, 0)
         .unwrap();
     // now write to memory
     let valid_disk = valid_disk.write().unwrap();
@@ -118,14 +118,14 @@ fn test_readonly_backup() {
         .unwrap();
 
     valid_disk
-        .add_partition("test1", 1024 * 12, gpt::partition_types::BASIC, 0, None)
+        .add_partition("test1", 1024 * 12, gpt_toolbox::partition_types::BASIC, 0, None)
         .unwrap();
     valid_disk
-        .add_partition("test2", 1024 * 18, gpt::partition_types::LINUX_FS, 0, None)
+        .add_partition("test2", 1024 * 18, gpt_toolbox::partition_types::LINUX_FS, 0, None)
         .unwrap();
     let id = valid_disk.find_next_partition_id().unwrap();
     valid_disk
-        .add_partition_at("test4", id, 94, 2, gpt::partition_types::BASIC, 0)
+        .add_partition_at("test4", id, 94, 2, gpt_toolbox::partition_types::BASIC, 0)
         .unwrap();
     // now write to memory
     valid_disk.write_inplace().unwrap();
@@ -140,7 +140,7 @@ fn test_readonly_backup() {
 
     // change something
     test_disk
-        .add_partition("test3", 1024 * 4, gpt::partition_types::LINUX_FS, 0, None)
+        .add_partition("test3", 1024 * 4, gpt_toolbox::partition_types::LINUX_FS, 0, None)
         .unwrap();
 
     test_disk.write_inplace().unwrap();
@@ -175,7 +175,7 @@ fn test_change_partition_count() {
             .add_partition(
                 &format!("test{i}"),
                 512,
-                gpt::partition_types::BASIC,
+                gpt_toolbox::partition_types::BASIC,
                 0,
                 None,
             )
@@ -185,7 +185,7 @@ fn test_change_partition_count() {
     let failed = valid_disk.add_partition(
         &format!("test129"),
         512,
-        gpt::partition_types::BASIC,
+        gpt_toolbox::partition_types::BASIC,
         0,
         None,
     );
@@ -207,7 +207,7 @@ fn test_change_partition_count() {
             .add_partition(
                 &format!("test{i}"),
                 512,
-                gpt::partition_types::BASIC,
+                gpt_toolbox::partition_types::BASIC,
                 0,
                 None,
             )
@@ -228,7 +228,7 @@ fn test_change_partition_count() {
     n_disk.remove_partition(129);
     n_disk.remove_partition(128);
     n_disk
-        .add_partition("test128", 512, gpt::partition_types::BASIC, 0, None)
+        .add_partition("test128", 512, gpt_toolbox::partition_types::BASIC, 0, None)
         .unwrap();
 
     n_disk.write_inplace().unwrap();
@@ -268,13 +268,13 @@ fn test_helper_gptdisk_write_efi_unused_partition_entries(lb_size: disk::Logical
 
     let part1_bytes = 3 * lb_bytes;
     gdisk
-        .add_partition("test1", part1_bytes, gpt::partition_types::BASIC, 0, None)
+        .add_partition("test1", part1_bytes, gpt_toolbox::partition_types::BASIC, 0, None)
         .unwrap();
     gdisk
         .add_partition(
             "test2",
             (data_lbs * lb_bytes) - part1_bytes,
-            gpt::partition_types::LINUX_FS,
+            gpt_toolbox::partition_types::LINUX_FS,
             0,
             None,
         )
@@ -350,7 +350,7 @@ fn test_gptdisk_write_efi_unused_partition_entries_4096() {
 
 #[test]
 fn test_non_overlapping_partition_edge_case() {
-    use gpt::{disk, partition_types, GptConfig};
+    use gpt_toolbox::{disk, partition_types, GptConfig};
     use std::io::Cursor;
 
     // Create an in-memory disk with 64 KiB.
