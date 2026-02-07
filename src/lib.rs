@@ -72,7 +72,7 @@
 
 use std::collections::BTreeMap;
 use std::io::{Read, Seek, Write};
-use std::{fmt, fs, io, path};
+use std::{fmt, fs, io, path, num};
 
 #[macro_use]
 mod macros;
@@ -98,6 +98,7 @@ impl<T> DiskDevice for T where T: Read + Write + Seek + std::fmt::Debug {}
 /// A dynamic trait object that is used by GptDisk for reading/writing/seeking.
 pub type DiskDeviceObject<'a> = Box<dyn DiskDevice + 'a>;
 
+
 #[non_exhaustive]
 #[derive(Debug)]
 /// Errors returned when interacting with a Gpt Disk.
@@ -122,6 +123,22 @@ pub enum GptError {
     PartitionCountWouldChange,
     /// The id is already been used
     PartitionIdAlreadyUsed,
+    /// Error stripping prefix while processing diskpath
+    StripPrefixError(path::StripPrefixError),
+    /// Error parsing string into integer
+    ParseIntError(num::ParseIntError),
+}
+
+impl From<num::ParseIntError> for GptError {
+    fn from(value: num::ParseIntError) -> Self {
+        Self::ParseIntError(value)
+    }
+}
+
+impl From<path::StripPrefixError> for GptError {
+    fn from(value: path::StripPrefixError) -> Self {
+        Self::StripPrefixError(value)
+    }
 }
 
 impl From<io::Error> for GptError {
@@ -158,6 +175,8 @@ impl fmt::Display for GptError {
             allowed"
             }
             PartitionIdAlreadyUsed => "partition id already used",
+            StripPrefixError(e) => return write!(fmt,"Stripping path prefix error: {e}"),
+            ParseIntError(e) => return write!(fmt,"Parsing int error: {e}")
         };
         write!(fmt, "{desc}")
     }

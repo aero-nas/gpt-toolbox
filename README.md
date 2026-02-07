@@ -6,7 +6,8 @@
 Fork of [gpt](https://github.com/Quyzi/gpt) by Quyzi that adds:
 
 - Support for arbitrary sector size (8K,16K, etc.)
-- [TODO] Multi-platform function to get sector size allowing devs to use any drive with weird sector size
+- Multi-platform function to get sector size allowing devs to use any drive with weird sector size
+- Other QoL features
 
 ## Example
 

@@ -3,6 +3,9 @@
 use super::{GptConfig, GptDisk, GptError};
 use std::{fmt, fs, io, path};
 
+use nix::{libc::ioctl, errno::Errno};
+use std::os::unix::io::AsRawFd;
+
 /// Default size of a logical sector (bytes).
 pub const DEFAULT_SECTOR_SIZE: LogicalBlockSize = LogicalBlockSize::Lb512;
 
@@ -40,6 +43,111 @@ impl LogicalBlockSize {
             LogicalBlockSize::Lb4096 => 4096,
             LogicalBlockSize::Other(block_size) => *block_size
         }
+    }
+}
+
+/// Struct for dk_minfo defined in 
+/// https://www.unix.com/man-page/opensolaris/7I/dkio/
+#[cfg(any(target_os = "solaris", target_os = "illumos"))]
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct dk_minfo {
+    /// Media type or profile info
+    pub dki_media_type: u32,
+
+    /// Logical blocksize of media
+    pub dki_lbsize: u32,
+
+    /// Capacity as # of dki_lbsize blks
+    pub dki_capacity: u64,
+}
+
+/// Get sector size
+/// Supports: 
+/// Linux 
+/// BSD (untested)
+/// Solaris/Illumos (untested)
+/// MacOS (untested)
+/// 
+/// unsafe because it uses nix::libc::ioctl
+#[cfg(any(
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd",
+
+    target_os = "solaris",
+    target_os = "illumos",
+    
+    target_os = "linux",
+    
+    target_os = "macos",
+))]
+pub unsafe fn get_block_size(diskpath: &str) -> Result<LogicalBlockSize, GptError> {
+    let file = fs::File::open(diskpath)?;
+    let fd = file.as_raw_fd();
+
+    let mut block_size: u64 = 0;
+
+    let result = unsafe {
+        // https://unix.stackexchange.com/a/52222
+        #[cfg(target_os = "linux")] 
+        {
+            ioctl(fd, nix::libc::BLKSSZGET, &mut block_size)
+        }
+
+        // https://github.com/Kostassoid/lethe/blob/d1cdf1b926bba8b262d1f6d901550ba5287ae727/src/storage/nix/macos.rs#L37
+        #[cfg(target_os = "macos")] 
+        {   
+            let mut block_size_u32: u32 = 0; 
+
+            let res = ioctl(fd, nix::libc::DKIOCGETBLOCKSIZE, &mut block_size_u32);
+
+            if res == 0 {
+                block_size = block_size_u32 as u64;
+            }
+            
+            res
+        }
+        
+        // https://man.netbsd.org/disk.9#DISK%20IOCTLS
+        #[cfg(any(
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "openbsd",
+            target_os = "netbsd"
+        ))]
+        { 
+            ioctl(fd, nix::libc::DIOCGSECTORSIZE, &mut block_size) 
+        }
+
+        // https://www.unix.com/man-page/opensolaris/7I/dkio/
+        #[cfg(any(target_os = "solaris", target_os = "illumos"))]
+        { 
+            let mut minfo = dk_minfo {
+                dki_lbsize: 0,
+                dki_capacity: 0,
+                dki_media_type: 0,
+            };
+
+            let res = ioctl(fd, nix::libc::DKIOCGMEDIAINFO, &mut minfo);
+
+            if res == 0 {
+                block_size = minfo.dki_lbsize as u64;
+            }
+
+            res
+        }
+    };
+
+    if result == -1 {
+        return Err(GptError::Io(io::Error::from(Errno::last())))
+    }
+
+    match block_size {
+        512 => Ok(LogicalBlockSize::Lb512),
+        4096 => Ok(LogicalBlockSize::Lb4096),
+        _ => Ok(LogicalBlockSize::Other(block_size))
     }
 }
 
