@@ -52,20 +52,21 @@ impl LogicalBlockSize {
 #[repr(C)]
 pub struct dk_minfo {
     /// Media type or profile info
-    pub dki_media_type: u32,
+    pub dki_media_type: u64,
 
     /// Logical blocksize of media
-    pub dki_lbsize: u32,
+    pub dki_lbsize: u64,
 
     /// Capacity as # of dki_lbsize blks
-    pub dki_capacity: u32,
+    pub dki_capacity: u64,
 }
 
 /// Get sector size
+/// 
 /// Supports: 
-/// Linux 
-/// BSD (untested)
-/// Solaris/Illumos (untested)
+/// Linux,
+/// BSD (untested), 
+/// Solaris/Illumos (untested),
 /// MacOS (untested)
 /// 
 /// unsafe because it uses nix::libc::ioctl
@@ -88,11 +89,22 @@ pub unsafe fn get_block_size(diskpath: &str) -> Result<LogicalBlockSize, GptErro
 
     let mut block_size: u64 = 0;
 
-    let result = unsafe {
+    let result = {
         // https://unix.stackexchange.com/a/52222
         #[cfg(target_os = "linux")] 
         {
             ioctl(fd, nix::libc::BLKSSZGET, &mut block_size)
+        }
+
+        // https://man.netbsd.org/disk.9#DISK%20IOCTLS
+        #[cfg(any(
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "openbsd",
+            target_os = "netbsd"
+        ))]
+        { 
+            ioctl(fd, nix::libc::DIOCGSECTORSIZE, &mut block_size) 
         }
 
         // https://github.com/Kostassoid/lethe/blob/d1cdf1b926bba8b262d1f6d901550ba5287ae727/src/storage/nix/macos.rs#L37
@@ -109,24 +121,14 @@ pub unsafe fn get_block_size(diskpath: &str) -> Result<LogicalBlockSize, GptErro
             res
         }
         
-        // https://man.netbsd.org/disk.9#DISK%20IOCTLS
-        #[cfg(any(
-            target_os = "dragonfly",
-            target_os = "freebsd",
-            target_os = "openbsd",
-            target_os = "netbsd"
-        ))]
-        { 
-            ioctl(fd, nix::libc::DIOCGSECTORSIZE, &mut block_size) 
-        }
 
         // https://www.unix.com/man-page/opensolaris/7I/dkio/
         #[cfg(any(target_os = "solaris", target_os = "illumos"))]
         { 
             let mut minfo = dk_minfo {
+                dki_media_type: 0,
                 dki_lbsize: 0,
                 dki_capacity: 0,
-                dki_media_type: 0,
             };
 
             let res = ioctl(fd, nix::libc::DKIOCGMEDIAINFO, &mut minfo);
