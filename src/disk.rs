@@ -50,7 +50,6 @@ impl LogicalBlockSize {
 /// https://www.unix.com/man-page/opensolaris/7I/dkio/
 #[cfg(any(target_os = "solaris", target_os = "illumos"))]
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
 pub struct dk_minfo {
     /// Media type or profile info
     pub dki_media_type: u32,
@@ -59,7 +58,7 @@ pub struct dk_minfo {
     pub dki_lbsize: u32,
 
     /// Capacity as # of dki_lbsize blks
-    pub dki_capacity: u64,
+    pub dki_capacity: u32,
 }
 
 /// Get sector size
